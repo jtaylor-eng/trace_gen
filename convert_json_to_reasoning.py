@@ -3,7 +3,7 @@ import random
 from tqdm import tqdm
 
 #input output paths
-JSONL_INPUT = './subset.jsonl' 
+JSONL_INPUT = './train_chess_reasoning.jsonl' 
 NL_OUTPUT = './reasoning_traces.txt'
 
 PREFIXES = [ #move proposition prefix (PREFIXES[i] + ' c5')

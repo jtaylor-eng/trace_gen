@@ -59,6 +59,8 @@ inputs = tokenizer(fen, return_tensors="pt")
 with torch.no_grad():
     out = model(**inputs)
 
+print(out)
+
 logits = out.logits
 predicted_id = logits.argmax(-1).item()
 
