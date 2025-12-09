@@ -288,7 +288,8 @@ def main():
     print(f'Using Model: {MODEL_ID}')
     start_time = time.time()
     
-    ignore_start_lines = 200000
+    # update to skip n lines of data, good for restarts, just command f last commentary in outputfile
+    ignore_start_lines = 200000 
     with open(OUTPUT_FILE, 'a', encoding='utf-8') as f_out:
         with open(PGN_FILE, 'r', encoding='utf-8') as pgn_file:
             for _ in range(ignore_start_lines): next(pgn_file)

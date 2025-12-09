@@ -1,5 +1,6 @@
 import json
 import random 
+from tqdm import tqdm
 
 #input output paths
 JSONL_INPUT = './subset.jsonl' 
@@ -8,7 +9,7 @@ NL_OUTPUT = './reasoning_traces.txt'
 PREFIXES = [ #move proposition prefix (PREFIXES[i] + ' c5')
     'What about this move: ',
     'Hmm, what if I consider ',
-    "But, let's consider playing",
+    "But, let's consider playing ",
     'How about the move ',
     "Let's think about moving ",
     'Wait, how about '
@@ -25,7 +26,7 @@ def process_one_reasoning_trace(
     
     candidates = trace['candidates'] 
     random.shuffle(candidates) #shuffle as best move often first
-    
+
     for cand in candidates:        
         prefix = random.choice(PREFIXES)
         
@@ -81,11 +82,12 @@ def process_one_json(line):
 def main():
     with open(NL_OUTPUT, 'a') as out_f:
         with open(JSONL_INPUT, 'r') as in_f:
-            for line in in_f:
+            for line in tqdm(in_f):
                 json_object = json.loads(line.strip())
                 out = process_one_json(json_object)
-                if out is not None:
-                    out_f.write(out + '\n\n\n')
+                if out is None: continue
+                
+                out_f.write(out + '\n\n\n')
 
 if __name__ == '__main__':
     main()
