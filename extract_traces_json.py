@@ -12,10 +12,10 @@ MIN_LEN_COMMENT = 32 #do not use process study if len(commentary) less than
 STOCKFISH = Stockfish(path="/users/PAS3150/jacktaylor/trace_gen/Stockfish/src/stockfish")
 
 MODEL_ID = 'meta-llama/Llama-3.1-8B-Instruct'
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 MAX_NEW_TOKENS = 1024
 PGN_FILE = 'game_studies_new.pgn'
-OUTPUT_FILE = 'train_chess_reasoning_USETHIS.jsonl'
+OUTPUT_FILE = 'train_chess_reasoning.jsonl'
 
 SYSTEM_PROMPT = """You are an expert chess analyst. Given a chess position in FEN notation, a list of candidate moves, and some human commentary on the chosen best move, generate a JSON output.
 
