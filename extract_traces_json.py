@@ -288,8 +288,10 @@ def main():
     print(f'Using Model: {MODEL_ID}')
     start_time = time.time()
     
-    with open(OUTPUT_FILE, 'w', encoding='utf-8') as f_out:
+    ignore_start_lines = 200000
+    with open(OUTPUT_FILE, 'a', encoding='utf-8') as f_out:
         with open(PGN_FILE, 'r', encoding='utf-8') as pgn_file:
+            for _ in range(ignore_start_lines): next(pgn_file)
             game_count = 0
             
             while True:
@@ -299,8 +301,7 @@ def main():
                     print(f"Error reading game: {e}")
                     break
 
-                if game is None: 
-                    break 
+                if game is None: break 
                 
                 game_count += 1
                 if game_count % 100 == 0:
@@ -312,7 +313,6 @@ def main():
                 if game.next(): 
                     process_node(game.next(), board, f_out)
             
-            # Process remaining items in buffer
             if batch_buffer:
                 process_batch(f_out)
 
