@@ -1,10 +1,11 @@
 import json
 import random 
+import chess
 from tqdm import tqdm
 
 #input output paths
 JSONL_INPUT = './train_chess_reasoning.jsonl' 
-NL_OUTPUT = './reasoning_traces.txt'
+NL_OUTPUT = './dataset.jsonl'
 
 PREFIXES = [ #move proposition prefix (PREFIXES[i] + ' c5')
     'What about this move: ',
@@ -18,11 +19,18 @@ PRO_CON_JOINS = [' and also ', ' and ', ' in addition to '] #split two pros (...
 PRO_CON_NEGATIONS = [' however ', ' but '] #split pros list and cons list (... good central control however poor knight positioning ...)
 
 
+def get_board_text(fen):
+    board = chess.Board(fen)
+    return f'{fen}\n{board}'
+
+
 def process_one_reasoning_trace(
     trace,
+    fen,
     think_tokens = ('<think>', '</think>')
 ):
-    formatted_output = [think_tokens[0]]
+    board_repr = get_board_text(fen)
+    formatted_output = [board_repr, think_tokens[0]]
     
     candidates = trace['candidates'] 
     random.shuffle(candidates) #shuffle as best move often first
@@ -71,12 +79,13 @@ def process_one_json(line):
     reasoning_trace = line['reasoning_trace']
     try:
         reasoning_trace_dict = json.loads(reasoning_trace)
-        reasoning_str = process_one_reasoning_trace(reasoning_trace_dict)
+        reasoning_str = process_one_reasoning_trace(reasoning_trace_dict, line['fen'])
     except Exception as e:
         print(f'Error: {e}')
         return ''
     
-    return reasoning_str + line['move']
+    line['reasoning_str'] = reasoning_str + line['move']
+    return line
 
 
 def main():
@@ -87,7 +96,7 @@ def main():
                 out = process_one_json(json_object)
                 if out is None: continue
                 
-                out_f.write(out + '\n\n\n')
+                out_f.write(json.dumps(out) + '\n')
 
 if __name__ == '__main__':
     main()
@@ -159,5 +168,5 @@ Hmm, what if I consider Nh6. This Develops knight and Supports kingside but Does
 How about the move Qh4. This Attacks White's position in addition to Develops queen but Does not address material imbalance.
 How about the move Qb6. This Supports queenside in addition to Develops queen however Does not address material imbalance.
 The choice of c4 is a bold and aggressive move that takes advantage of the current material imbalance. By playing c4, Black gains a pawn and weakens White's pawn structure, setting up potential long-term threats. This move is a testament to the power of dynamic play and the importance of seizing opportunities to gain an advantage.
-</think>
+</think>c4
 """
