@@ -30,7 +30,7 @@ def process_one_reasoning_trace(
     think_tokens = ('<think>', '</think>')
 ):
     board_repr = get_board_text(fen)
-    formatted_output = [board_repr, think_tokens[0]]
+    formatted_output =  [think_tokens[0], board_repr]
     
     candidates = trace['candidates'] 
     random.shuffle(candidates) #shuffle as best move often first
@@ -89,12 +89,12 @@ def process_one_json(line):
 
 
 def main():
-    with open(NL_OUTPUT, 'a') as out_f:
+    with open(NL_OUTPUT, 'w') as out_f:
         with open(JSONL_INPUT, 'r') as in_f:
             for line in tqdm(in_f):
                 json_object = json.loads(line.strip())
                 out = process_one_json(json_object)
-                if out is None: continue
+                if out == '': continue
                 
                 out_f.write(json.dumps(out) + '\n')
 
