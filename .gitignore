@@ -1,3 +1,9 @@
 game_studies_new.pgn
-final_chess_model/
-checkpoints/
+
+# final_chess_model/
+# checkpoints/
+# chess_model_1215/
+# ^ moved below
+model_ckpts
+
+chess_enc_ckpt

@@ -1,3 +1,5 @@
+#for checking package functionality faster than repl
+
 import chess
 from stockfish import Stockfish
 
