@@ -136,7 +136,7 @@ class ChessReasoningDataset(Dataset):
     def __len__(self): return len(self.data)
 
 
-class MultimodelCollator:
+class MultimodalCollator:
     def __init__(self, chess_tokenizer, llm_tokenizer, max_text_len=1024):
         self.chess_tokenizer = chess_tokenizer
         self.llm_tokenizer = llm_tokenizer
@@ -206,7 +206,7 @@ def main():
     if l_tok.pad_token is None: l_tok.pad_token = l_tok.eos_token
 
     dataset = ChessReasoningDataset(DATASET_PATH)
-    collator = MultimodelCollator(chess_tokenizer=c_tok, llm_tokenizer=l_tok)
+    collator = MultimodalCollator(chess_tokenizer=c_tok, llm_tokenizer=l_tok)
 
     model = ChessLM()
 
