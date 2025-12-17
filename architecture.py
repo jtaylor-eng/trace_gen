@@ -2,34 +2,46 @@ import torch
 import torch.nn as nn
 import gc
 from torch.utils.data import Dataset, DataLoader
-from transformers import Trainer, TrainingArguments, AutoModelForCausalLM, AutoTokenizer, AutoModelForSequenceClassification, BitsAndBytesConfig
+from transformers import Trainer, TrainingArguments, AutoModelForCausalLM, AutoTokenizer, AutoModelForSequenceClassification, BitsAndBytesConfig, PreTrainedTokenizerFast, AutoConfig
 from peft import LoraConfig, get_peft_model, TaskType, prepare_model_for_kbit_training
 import os
 import json
 import re
 from transformers import EarlyStoppingCallback
 from torch.utils.data import random_split
+from chess_encoder import ChessPolicyValueModel
+from chess_tokenizer import create_tokenizer, process_fen
 
 CHESS_ENC_HF_PATH = 'jrahn/ROOK-CLF-9m' 
+CHESS_ENC_CKPT_PATH = './chess_enc_ckpt'
 LLM_HF_PATH = 'deepseek-ai/DeepSeek-R1-Distill-Llama-8B'
-DATASET_PATH = './dataset_no_board.jsonl'
-MODEL_SAVE_PATH = './chess_model_1215'
+DATASET_PATH = './datasets/dataset_no_board.jsonl'
+MODEL_SAVE_PATH = './model_ckpts/chess_model_1216'
 
 class ChessLM(nn.Module):
     def __init__(
         self,
-        chess_enc: str = CHESS_ENC_HF_PATH,
+        chess_enc: str = CHESS_ENC_CKPT_PATH,
         llm_model: str = LLM_HF_PATH,
         freeze_chess_enc: bool = True,
-        freeze_llm: bool = True
+        freeze_llm: bool = True,
+        use_checkpoint: bool = True
     ):
         super().__init__()
-        #chess encoder
-        self.c_enc = AutoModelForSequenceClassification.from_pretrained(
-            chess_enc,
-            trust_remote_code=True,
-            torch_dtype=torch.bfloat16
-        ).model
+        if use_checkpoint:
+            print('using custom')
+            chess_model = ChessPolicyValueModel.from_pretrained_compiled(chess_enc)
+            self.c_enc = chess_model.transformer
+            self.chess_dim = chess_model.config.hidden_size
+        else:
+            self.c_enc = AutoModelForSequenceClassification.from_pretrained(
+                chess_enc,
+                trust_remote_code=True,
+                torch_dtype=torch.bfloat16
+            ).model
+            self.chess_dim = 256
+        
+        self.c_enc = self.c_enc.to(torch.bfloat16)
         for param in self.c_enc.parameters(): param.requires_grad = not freeze_chess_enc
         
         #language model
@@ -47,7 +59,6 @@ class ChessLM(nn.Module):
         self.llm = prepare_model_for_kbit_training(self.llm)
         for param in self.llm.parameters(): param.requires_grad = not freeze_llm
 
-        self.chess_dim = 256 #TODO not chess_enc drop in safe
         self.llm_dim = self.llm.config.hidden_size
 
         self.projector = nn.Sequential(
@@ -113,16 +124,8 @@ class ChessReasoningDataset(Dataset):
 
     @classmethod
     def process_fen(cls, fen):
-        """https://huggingface.co/jrahn/ROOK-CLF-9m"""
-        position, turn, castling, en_passant, halfmove, fullmove = fen.split(" ")
-        position = re.sub(r'\d+', lambda m: "." * int(m.group()), position)
-        position = position.replace("/", "")  # Remove row separators
-        castling = castling.ljust(4, ".")     # Pad to 4 chars
-        en_passant = en_passant.ljust(2, ".") # Pad to 2 chars
-        halfmove = halfmove.ljust(2, ".") + "." # Pad to 3 chars total
-        fullmove = fullmove.ljust(3, ".")     # Pad to 3 chars
-        out = "".join([position, turn, castling, en_passant, halfmove, fullmove])
-        return out + '[CLS]'
+        """Process FEN for custom tokenizer (uses process_fen from chess_tokenizer)"""
+        return process_fen(fen)
     
 
     def __getitem__(self, idx):
@@ -176,32 +179,23 @@ class MultimodalCollator:
         }
 
 
-def example_chess_enc_usage():
-    tokenizer = AutoTokenizer.from_pretrained("jrahn/ROOK-CLF-9m", trust_remote_code=True)
-    model = AutoModelForSequenceClassification.from_pretrained("jrahn/ROOK-CLF-9m", trust_remote_code=True)
-    print(model)
-
-    fen = '2r2rk1/pbqnbppp/1p2pn2/2ppN3/3P4/1P1BPQ2/PBPN1PPP/3R1RK1 w - - 6 1'
-    fen = ChessReasoningDataset.process_fen(fen)
-    inputs = tokenizer(fen, return_tensors='pt')
-
-    with torch.no_grad():
-        out = model(**inputs)
-
-    logits = out.logits
-    predicted_id = logits.argmax(-1).item()
-
-    move = model.config.id2label[predicted_id]
-    print('Model predicts: ', move) 
-
-
 def main():
     torch.cuda.empty_cache() ; gc.collect()
 
     if not os.path.exists(MODEL_SAVE_PATH):
         os.makedirs(MODEL_SAVE_PATH)
 
-    c_tok = AutoTokenizer.from_pretrained(CHESS_ENC_HF_PATH, trust_remote_code=True)
+    tokenizer_obj = create_tokenizer()
+    c_tok = PreTrainedTokenizerFast(
+        tokenizer_object=tokenizer_obj,
+        pad_token="[PAD]",
+        unk_token="[UNK]",
+        mask_token="[MASK]"
+    )
+    if c_tok.pad_token_id is None:
+        c_tok.add_special_tokens({'pad_token': '[PAD]'})
+
+    
     l_tok = AutoTokenizer.from_pretrained(LLM_HF_PATH)
     if l_tok.pad_token is None: l_tok.pad_token = l_tok.eos_token
 
@@ -213,7 +207,7 @@ def main():
     print('Beginning Alignment')
 
     alignment_args = TrainingArguments(
-        output_dir="./checkpoints/stage1_alignment",
+        output_dir="./model_ckpts/checkpoints/stage1_alignment",
         per_device_train_batch_size=16, 
         gradient_accumulation_steps=2,
         num_train_epochs=1,
@@ -255,10 +249,10 @@ def main():
     print(f"Training on {train_size} samples, Validating on {val_size} samples.")
 
     tuning_args = TrainingArguments(
-        output_dir="./checkpoints/stage2_lora",
+        output_dir="./model_checkpoints/checkpoints/stage2_lora",
         per_device_train_batch_size=4,
         gradient_accumulation_steps=4,
-        num_train_epochs=10,
+        num_train_epochs=5,
         learning_rate=1e-4,
         bf16=True,
         report_to="none",

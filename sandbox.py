@@ -69,3 +69,41 @@ predicted_id = logits.argmax(-1).item()
 move = model.config.id2label[predicted_id]
 print("Model predicts:", move)
 
+
+
+
+# def example_chess_enc_usage():
+#     # Load custom model and tokenizer
+#     if os.path.isdir(CHESS_ENC_CKPT_PATH) and os.path.exists(os.path.join(CHESS_ENC_CKPT_PATH, 'config.json')):
+#         # Load custom checkpoint using from_pretrained_compiled to handle _orig_mod. prefixes
+#         model = ChessPolicyValueModel.from_pretrained_compiled(CHESS_ENC_CKPT_PATH)
+#         tokenizer_obj = create_tokenizer()
+#         tokenizer = PreTrainedTokenizerFast(
+#             tokenizer_object=tokenizer_obj,
+#             pad_token="[PAD]",
+#             unk_token="[UNK]",
+#             mask_token="[MASK]"
+#         )
+#         if tokenizer.pad_token_id is None:
+#             tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+#     else:
+#         tokenizer = AutoTokenizer.from_pretrained("jrahn/ROOK-CLF-9m", trust_remote_code=True)
+#         model = AutoModelForSequenceClassification.from_pretrained("jrahn/ROOK-CLF-9m", trust_remote_code=True)
+    
+#     print(model)
+
+#     fen = '2r2rk1/pbqnbppp/1p2pn2/2ppN3/3P4/1P1BPQ2/PBPN1PPP/3R1RK1 w - - 6 1'
+#     fen = ChessReasoningDataset.process_fen(fen)
+#     inputs = tokenizer(fen, return_tensors='pt')
+
+#     with torch.no_grad():
+#         out = model(**inputs)
+
+#     logits = out.logits
+#     predicted_id = logits.argmax(-1).item()
+
+#     if hasattr(model.config, 'id2label') and model.config.id2label:
+#         move = model.config.id2label[predicted_id]
+#         print('Model predicts: ', move)
+#     else:
+#         print('Model predicts move ID: ', predicted_id) 
